@@ -1,0 +1,165 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(300)
+  name         String?  @db.VarChar(100)
+  role         String?  @db.VarChar(50)
+  birthdate    DateTime?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  createdGroups    Group[]         @relation("GroupCreator")
+  userGroups       UserGroup[]
+  transactions     Transaction[]
+  accounts         Account[]       @relation("AccountOwner")
+  createdAccounts  Account[]       @relation("AccountCreator")
+  notifications    Notification[]
+  createdGoals     Goal[]
+
+  @@map("users")
+}
+
+model Group {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(200)
+  createdBy Int      @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  creator        User            @relation("GroupCreator", fields: [createdBy], references: [id])
+  userGroups     UserGroup[]
+  transactions   Transaction[]
+  accountsGroups AccountsGroup[]
+  goals          Goal[]
+
+  @@map("groups")
+}
+
+model UserGroup {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @map("user_id")
+  groupId  Int      @map("group_id")
+  role     String?  @db.VarChar(50)
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  // Relationships
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@map("user_groups")
+}
+
+model Account {
+  id        Int     @id @default(autoincrement())
+  title     String  @db.VarChar(100)
+  type      String  @db.VarChar(100)
+  balance   Decimal @db.Decimal(12, 2)
+  currency  String  @db.VarChar(50)
+  groupId   Int?    @map("group_id")
+  userId    Int     @map("user_id")
+  createdBy Int     @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  owner          User            @relation("AccountOwner", fields: [userId], references: [id])
+  creator        User            @relation("AccountCreator", fields: [createdBy], references: [id])
+  transactions   Transaction[]
+  accountsGroups AccountsGroup[]
+
+  @@map("accounts")
+}
+
+model AccountsGroup {
+  id        Int @id @default(autoincrement())
+  accountId Int @map("account_id")
+  groupId   Int @map("group_id")
+
+  // Relationships
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, groupId])
+  @@map("accounts_groups")
+}
+
+model Transaction {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  groupId    Int      @map("group_id")
+  accountId  Int      @map("account_id")
+  categoryId Int      @map("category_id")
+  amount     Decimal  @db.Decimal(10, 2)
+  date       DateTime @db.Date
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  user     User     @relation(fields: [userId], references: [id])
+  group    Group    @relation(fields: [groupId], references: [id])
+  account  Account  @relation(fields: [accountId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@map("transactions")
+}
+
+model Category {
+  id    Int    @id @default(autoincrement())
+  title String @db.VarChar(150)
+  type  String @db.VarChar(50)
+
+  // Relationships
+  transactions Transaction[]
+
+  @@map("categories")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  title     String   @db.VarChar(100)
+  message   String   @db.VarChar(1000)
+  type      String   @db.VarChar(50)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Goal {
+  id            Int      @id @default(autoincrement())
+  title         String   @db.VarChar(300)
+  description   String?  @db.VarChar(1000)
+  targetAmount  Decimal  @map("target_amount") @db.Decimal(12, 2)
+  currentAmount Decimal  @map("current_amount") @db.Decimal(12, 2)
+  targetDate    DateTime @map("target_date")
+  groupId       Int      @map("group_id")
+  createdBy     Int      @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  isAchieved    Boolean  @default(false) @map("is_achieved")
+
+  // Relationships
+  group   Group @relation(fields: [groupId], references: [id])
+  creator User  @relation(fields: [createdBy], references: [id])
+
+  @@map("goals")
+}
